@@ -68,6 +68,11 @@ add_executable(el05_joint1_sine
 )
 add_executable(el05_all_sine src/el05_all_sine.cpp)
 add_executable(el05_joint2_current_monitor src/el05_joint2_current_monitor.cpp)
+
+# 滑块伺服：/joint_states -> 五台电机 CSP 位置指令
+add_executable(el05_slider_servo
+  src/el05_slider_servo.cpp
+)
 # add_executable(enable_motor
 #   src/enable_motor.cpp
 # )
@@ -99,6 +104,7 @@ target_link_libraries(five_dof_arm_controller
 target_link_libraries(el05_joint1_sine ${PROJECT_NAME}_lib)
 target_link_libraries(el05_all_sine ${PROJECT_NAME}_lib)
 target_link_libraries(el05_joint2_current_monitor ${PROJECT_NAME}_lib)
+target_link_libraries(el05_slider_servo ${PROJECT_NAME}_lib)
 # target_link_libraries(enable_motor
 #   ${PROJECT_NAME}_lib
 # )
@@ -116,7 +122,7 @@ install(
 
 # Install targets
 install(
-  TARGETS ${PROJECT_NAME}_lib rs_motor_ros2 five_dof_arm_controller el05_joint1_sine el05_all_sine el05_joint2_current_monitor
+  TARGETS ${PROJECT_NAME}_lib rs_motor_ros2 five_dof_arm_controller el05_joint1_sine el05_all_sine el05_joint2_current_monitor el05_slider_servo
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
