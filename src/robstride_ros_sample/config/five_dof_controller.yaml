@@ -1,5 +1,7 @@
 five_dof_arm_controller:
   ros__parameters:
+    # [2026-10-30] 五台电机在 MotorStudio 里设成了 21~25 号，这里按顺序对应 joint1~joint5
+    motor_ids: [21, 22, 23, 24, 25]
     control_rate_hz: 50.0
     position_kp: 2.0
     sine_amplitude: 0.05
@@ -7,8 +9,10 @@ five_dof_arm_controller:
     max_temperature: 80.0
     max_torque: 10.0
     command_timeout: 0.5
-    # 按 CAN ID 1~5 排列；单位 rad
-    mech_offset: [0.0, 0.265762, 0.0, 4.244908, 0.0]
+    # 按 CAN ID 21~25 排列；单位 rad
+    # 0x7019 返回的已是负载端机械角（电机内部已扣过 MechOffset），所以这里默认全 0；
+    # 整臂对齐时按实测偏差再填。
+    mech_offset: [0.0, 0.0, 0.0, 0.0, 0.0]
     joint_direction: [1.0, 1.0, 1.0, 1.0, 1.0]
     gear_ratio: [1.0, 1.0, 1.0, 1.0, 1.0]
     lower_limit: [-3.14, -0.720, -0.890, -3.14, -1.255]

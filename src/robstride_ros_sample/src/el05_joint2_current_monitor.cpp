@@ -17,14 +17,17 @@ void on_signal(int) { interrupted = true; }
 int main(int argc, char **argv) {
   double duration = 0.0;
   double rate_hz = 10.0;
+  int motor_id = 22;   // MotorStudio 里设的 21~25
   for (int i = 1; i < argc; ++i) {
     const std::string arg(argv[i]);
     if (arg == "--duration" && i + 1 < argc) {
       duration = std::stod(argv[++i]);
     } else if (arg == "--rate" && i + 1 < argc) {
       rate_hz = std::stod(argv[++i]);
+    } else if (arg == "--motor-id" && i + 1 < argc) {
+      motor_id = std::stoi(argv[++i]);
     } else {
-      std::cerr << "Usage: el05_joint2_current_monitor [--duration seconds] [--rate Hz]\n";
+      std::cerr << "Usage: el05_joint2_current_monitor [--duration seconds] [--rate Hz] [--motor-id N]\n";
       return 2;
     }
   }
@@ -35,7 +38,7 @@ int main(int argc, char **argv) {
 
   std::signal(SIGINT, on_signal);
   std::signal(SIGTERM, on_signal);
-  RobStrideMotor motor("can0", 0xFD, 2, 0);
+  RobStrideMotor motor("can0", 0xFD, (uint8_t)motor_id, 0);
   const auto period = std::chrono::duration<double>(1.0 / rate_hz);
   const auto start = std::chrono::steady_clock::now();
 

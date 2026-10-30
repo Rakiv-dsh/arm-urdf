@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,9 +24,11 @@ public:
     joint_names_ = {"joint1", "joint2", "joint3", "joint4", "joint5"};
     // All five EL05 motors share one physical CAN bus exposed as can0.
     interfaces_ = {"can0", "can0", "can0", "can0", "can0"};
-    motor_ids_ = {1, 2, 3, 4, 5};
-    // Mechanical offsets for CAN IDs 1~5, in radians.
-    offsets_ = {0.0, 0.265762, 0.0, 4.244908, 0.0};
+    // [2026-10-30] 五台电机在 MotorStudio 里设成了 21~25 号（可用参数 motor_ids 覆盖）。
+    motor_ids_ = {21, 22, 23, 24, 25};
+    // 0x7019 读到的已是负载端机械角（电机内部已扣过 MechOffset），默认不再二次扣减；
+    // 需要整臂对齐时再按实测把偏置填进 mech_offset。
+    offsets_ = {0.0, 0.0, 0.0, 0.0, 0.0};
     directions_ = {1.0, 1.0, 1.0, 1.0, 1.0};
     gear_ratios_ = {1.0, 1.0, 1.0, 1.0, 1.0};
     lower_ = {-3.14, -0.720, -0.890, -3.14, -1.255};
@@ -41,6 +44,17 @@ public:
     max_temperature_ = declare_parameter<double>("max_temperature", 80.0);
     max_torque_ = declare_parameter<double>("max_torque", 10.0);
     command_timeout_ = declare_parameter<double>("command_timeout", 0.5);
+    {
+      const auto ids = declare_parameter<std::vector<int64_t>>(
+          "motor_ids", std::vector<int64_t>{21, 22, 23, 24, 25});
+      if (ids.size() == kJointCount) {
+        for (std::size_t i = 0; i < kJointCount; ++i)
+          motor_ids_[i] = static_cast<uint8_t>(ids[i]);
+      } else {
+        RCLCPP_WARN(get_logger(), "motor_ids must contain %zu values; keeping defaults",
+                    kJointCount);
+      }
+    }
     load_vector_parameter("mech_offset", offsets_);
     load_vector_parameter("joint_direction", directions_);
     load_vector_parameter("gear_ratio", gear_ratios_);

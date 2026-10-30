@@ -22,6 +22,7 @@ int main(int argc, char **argv) {
   double amplitude = 0.005;
   double frequency = 0.1;
   double speed_limit = 0.1;
+  int motor_id = 21;   // MotorStudio 里设的 21~25
   for (int i = 1; i < argc; ++i) {
     const std::string arg(argv[i]);
     if (arg == "--confirm-hardware") {
@@ -38,9 +39,11 @@ int main(int argc, char **argv) {
       frequency = std::stod(argv[++i]);
     } else if (arg == "--speed" && i + 1 < argc) {
       speed_limit = std::stod(argv[++i]);
+    } else if (arg == "--motor-id" && i + 1 < argc) {
+      motor_id = std::stoi(argv[++i]);
     } else {
       std::cerr << "Usage: el05_joint1_sine --confirm-hardware [--confirm-large-motion] [--hold-enabled]\n"
-                << "  [--duration seconds] [--amplitude rad] [--frequency Hz] [--speed rad/s]\n";
+                << "  [--duration seconds] [--amplitude rad] [--frequency Hz] [--speed rad/s] [--motor-id N]\n";
       return 2;
     }
   }
@@ -66,7 +69,7 @@ int main(int argc, char **argv) {
 
   std::signal(SIGINT, on_signal);
   std::signal(SIGTERM, on_signal);
-  RobStrideMotor motor("can0", 0xFD, 1, 0);
+  RobStrideMotor motor("can0", 0xFD, (uint8_t)motor_id, 0);
   try {
     // A valid parameter response is required before any enable/motion command.
     motor.Get_RobStrite_Motor_parameter(0x7019);
