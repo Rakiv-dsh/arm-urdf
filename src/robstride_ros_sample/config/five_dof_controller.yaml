@@ -1,0 +1,16 @@
+five_dof_arm_controller:
+  ros__parameters:
+    control_rate_hz: 50.0
+    position_kp: 2.0
+    sine_amplitude: 0.05
+    sine_frequency: 0.1
+    max_temperature: 80.0
+    max_torque: 10.0
+    command_timeout: 0.5
+    # 按 CAN ID 1~5 排列；单位 rad
+    mech_offset: [0.0, 0.265762, 0.0, 4.244908, 0.0]
+    joint_direction: [1.0, 1.0, 1.0, 1.0, 1.0]
+    gear_ratio: [1.0, 1.0, 1.0, 1.0, 1.0]
+    lower_limit: [-3.14, -0.720, -0.890, -3.14, -1.255]
+    upper_limit: [3.14, 2.190, 2.340, 3.14, 1.750]
+    velocity_limit: [1.0, 1.0, 1.0, 1.0, 1.0]

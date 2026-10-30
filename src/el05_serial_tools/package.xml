@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>el05_serial_tools</name>
+  <version>0.1.0</version>
+  <description>Safe serial monitor for the RobStride EL05 AT protocol.</description>
+  <maintainer email="user@example.com">tersoul</maintainer>
+  <license>BSD-3-Clause</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>pyserial</exec_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>
