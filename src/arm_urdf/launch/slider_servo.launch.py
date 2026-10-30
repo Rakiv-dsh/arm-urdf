@@ -38,6 +38,7 @@ def generate_launch_description():
         "upper_limit": [float(j["upper"]) for j in driven],
     }
 
+    import launch_ros.parameter_descriptions as _pd  # noqa: F401
     use_rviz = LaunchConfiguration("rviz")
     use_gui = LaunchConfiguration("gui")
     use_servo = LaunchConfiguration("servo")
@@ -53,6 +54,12 @@ def generate_launch_description():
             DeclareLaunchArgument("can_interface", default_value="can0"),
             DeclareLaunchArgument("max_speed", default_value="0.3",
                                   description="目标斜坡速度 rad/s，滑块猛拉也不会一步到位"),
+            DeclareLaunchArgument("limit_cur", default_value="6.0",
+                                  description="使能前把电机电流限幅写成这个值（A），0=不改"),
+            DeclareLaunchArgument("watchdog_ms", default_value="1500.0",
+                                  description="多久收不到 /joint_states 就失能；0=关闭"),
+            DeclareLaunchArgument("active_joints", default_value="",
+                                  description="只驱动这些关节，逗号分隔（空=全部），调方向时只填一个"),
             Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
@@ -85,7 +92,9 @@ def generate_launch_description():
                         "max_speed": max_speed,
                         "control_rate_hz": 50.0,
                         "speed_limit": 0.5,
-                        "watchdog_ms": 300.0,
+                        "watchdog_ms": LaunchConfiguration("watchdog_ms"),
+                        "limit_cur": LaunchConfiguration("limit_cur"),
+                        "active_joints": LaunchConfiguration("active_joints"),
                     },
                 ],
                 condition=IfCondition(use_servo),
