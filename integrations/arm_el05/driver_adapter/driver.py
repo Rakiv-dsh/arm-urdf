@@ -181,6 +181,11 @@ class HandDriver:
                 return struct.unpack("<f", d[4:8])[0]
         return None
 
+    def _write_mode(self, mid: int, mode: int) -> bool:
+        """0x7005 是 uint8：值放在 data[4]，不能用 float 写（float 5.0 的 data[4] 是 0）."""
+        return self._send((T_SET_PARAM << 24) | (self.master_id << 8) | mid,
+                          struct.pack("<H", IDX_RUN_MODE) + bytes([int(mode), 0, 0, 0]))
+
     def _write_param(self, mid: int, idx: int, value: float) -> bool:
         return self._send((T_SET_PARAM << 24) | (self.master_id << 8) | mid,
                           struct.pack("<H", idx) + struct.pack("<f", value))
@@ -239,7 +244,7 @@ class HandDriver:
             for mid in self.motor_ids:
                 now = self._read_param(mid, IDX_MECHPOS, timeout=0.08)
                 hold = now if now is not None else 0.0
-                self._write_param(mid, IDX_RUN_MODE, MODE_CSP)
+                self._write_mode(mid, MODE_CSP)
                 self._write_param(mid, IDX_LIMIT_SPD, self.max_speed)
                 self._write_param(mid, IDX_LOC_REF, hold)   # 先钉在当前位置，不乱动
                 self._send((T_ENABLE << 24) | (self.master_id << 8) | mid)
