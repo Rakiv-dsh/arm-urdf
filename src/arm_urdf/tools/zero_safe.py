@@ -67,6 +67,11 @@ def rd(s, mid, idx=IDX_MECHPOS, timeout=0.25):
     return None
 
 
+def write_mode(s, mid, mode):
+    send(s, (0x12 << 24) | (0xFD << 8) | mid, struct.pack("<H", 0x7005) + bytes([int(mode), 0, 0, 0]))
+    drain(s, 30)
+
+
 def wr(s, mid, idx, val):
     send(s, (0x12 << 24) | (0xFD << 8) | mid, struct.pack("<H", idx) + struct.pack("<f", val))
     drain(s, 30)
@@ -99,7 +104,7 @@ def main():
             continue
         # 1) 慢速 + 目标=当前位置（就算零位改了目标，跑起来也只有 0.02 rad/s）
         wr(s, mid, IDX_LIMSPD, 0.02)
-        wr(s, mid, IDX_RUNMODE, 5.0)
+        write_mode(s, mid, 5)
         send(s, (0x03 << 24) | (0xFD << 8) | mid)
         drain(s, 30)
         for _ in range(5):

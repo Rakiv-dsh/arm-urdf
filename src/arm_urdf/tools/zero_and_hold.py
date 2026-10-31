@@ -107,7 +107,7 @@ def main():
             write_param(s, mid, IDX_LIMCUR, a.current)
         send(s, (0x03 << 24) | (0xFD << 8) | mid)          # 使能
         drain(s, 30)
-        write_param(s, mid, IDX_RUNMODE, 5.0)              # CSP
+        write_mode(s, mid, 5)              # CSP
         write_param(s, mid, IDX_LIMSPD, a.speed)
         write_param(s, mid, IDX_LOCREF, 0.0)
 
