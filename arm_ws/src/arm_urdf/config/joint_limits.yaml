@@ -1,0 +1,58 @@
+# 关节限位与电机映射 —— 唯一数据源
+#
+# 改这里，然后跑： python3 ~/ros2_arm_ws/src/arm_urdf/tools/sync_limits.py
+# 它会同时更新：
+#   1. URDF 里每个 joint 的 <limit lower upper>
+#   2. 控制器 rs_motor_ros2 的 five_dof_controller.yaml（lower_limit / upper_limit / 方向 / 偏置 / 电机号）
+#
+# 单位：rad（关节空间）。lower/upper 是「仿真里允许滑到的范围」，也是「真机允许的范围」。
+#
+# motor 段说明（把关节角换成电机侧读数）：
+#     mechPos = offset + dir * gear * joint_angle
+#   dir  : +1 / -1，电机正转时关节角是否增大
+#   gear : 减速比（EL05 输出端 9:1，若直接以输出端计角就填 1）
+#   offset: 关节角 0 时电机读到的 mechPos
+#   can_id: MotorStudio 里设的电机号；null = 这个关节没有电机（纯仿真）
+
+joints:
+  - name: joint1
+    lower: -3.14
+    upper: 3.14
+    effort: 6.0             # 峰值扭矩 N·m，填了 MoveIt 之类的工具才不会报 0
+    velocity: 10.0          # vel max rad/s（MotorStudio 里 0x201f = 10）
+    motor: { can_id: 21, dir: 1.0, gear: 1.0, offset: 0.0 }
+
+  - name: joint2
+    lower: -0.720
+    upper: 2.190
+    effort: 6.0
+    velocity: 10.0
+    motor: { can_id: 22, dir: 1.0, gear: 1.0, offset: 0.0 }
+
+  - name: joint3
+    lower: -0.890
+    upper: 2.340
+    effort: 6.0
+    velocity: 10.0
+    motor: { can_id: 23, dir: 1.0, gear: 1.0, offset: 0.0 }
+
+  - name: joint4
+    lower: -3.14
+    upper: 3.14
+    effort: 6.0
+    velocity: 10.0
+    motor: { can_id: 24, dir: 1.0, gear: 1.0, offset: 0.0 }
+
+  - name: joint5
+    lower: -1.255
+    upper: 1.750
+    effort: 6.0
+    velocity: 10.0
+    motor: { can_id: 25, dir: 1.0, gear: 1.0, offset: 0.0 }
+
+  - name: joint6            # 没有电机：只在仿真里存在
+    lower: -1.57
+    upper: 1.57
+    effort: 6.0
+    velocity: 10.0
+    motor: null
