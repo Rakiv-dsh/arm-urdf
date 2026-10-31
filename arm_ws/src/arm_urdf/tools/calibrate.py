@@ -74,6 +74,12 @@ def read_param(s, mid, idx, timeout=0.25):
     return recv_frame(s, time.monotonic() + timeout, (mid, idx))
 
 
+def write_mode(s, mid, mode):
+    """0x7005 是 uint8 参数：值必须放在 data[4]，不能用 float 写（float 5.0 的 data[4] 是 0x00）。"""
+    send(s, (0x12 << 24) | (0xFD << 8) | mid, struct.pack("<H", 0x7005) + bytes([int(mode), 0, 0, 0]))
+    recv_frame(s, time.monotonic() + 0.1, None)
+
+
 def write_param(s, mid, idx, value, timeout=0.25):
     send(s, (0x12 << 24) | (0xFD << 8) | mid, struct.pack("<H", idx) + struct.pack("<f", value))
     recv_frame(s, time.monotonic() + timeout)
@@ -148,13 +154,17 @@ def cmd_jog(a):
                          % (q_new, j["lower"], j["upper"]))
     print(" %s: 当前关节角 %.4f -> 目标 %.4f（机械角 %.4f -> %.4f）" % (
         a.joint, q_now, q_new, mech, to_mech(m, q_new)))
-    # 使能 + 限速/限流 + 切 CSP
+    # 顺序很重要：先失能 -> 写运行模式 -> 写限速 -> 使能 -> 发目标
+    # （使能状态下电机不接受运行模式切换，模式写不进去就一直是运控模式，位置指令会被忽略）
     if a.current > 0:
         write_param(s, mid, 0x2019, a.current)
+    send(s, (0x04 << 24) | (0xFD << 8) | mid)          # 失能
+    recv_frame(s, time.monotonic() + 0.15)
+    write_mode(s, mid, 5)                               # 切 CSP（单字节写，失能状态下）
+    write_param(s, mid, 0x7017, 0.08)                   # 限速 rad/s
     send(s, (0x03 << 24) | (0xFD << 8) | mid)          # 使能
     recv_frame(s, time.monotonic() + 0.2)
-    write_param(s, mid, 0x7005, 5.0)                    # CSP
-    write_param(s, mid, 0x7017, 0.08)                   # 限速 rad/s
+    time.sleep(0.05)
     target = to_mech(m, q_new)
     t_end = time.monotonic() + a.hold
     while time.monotonic() < t_end:
@@ -210,6 +220,62 @@ def cmd_record(a):
     return subprocess.call([sys.executable, os.path.join(HERE, "sync_limits.py")])
 
 
+
+
+def cmd_home(a):
+    """把各轴开回关节角 0（电机内部零位）。默认顺序从远端到根部，避免底座先摆。"""
+    cfg = load_cfg()
+    by_name = {j["name"]: j for j in cfg["joints"]}
+    order = [n.strip() for n in a.order.split(",") if n.strip()] if a.order else             ["joint5", "joint4", "joint3", "joint2", "joint1"]
+    s = _sock(a.iface)
+    print("=== 回到零位（顺序：%s）===" % " -> ".join(order))
+    for name in order:
+        j = by_name.get(name)
+        if not j or not j.get("motor"):
+            continue
+        m = j["motor"]
+        mid = int(m["can_id"])
+        mech = read_param(s, mid, IDX_MECHPOS)
+        if mech is None:
+            print("  %-8s 读不到，跳过" % name)
+            continue
+        q = to_joint(m, mech)
+        print("  %-8s 当前 %+.4f rad，目标 0" % (name, q))
+        if abs(q) <= a.tol:
+            print("           已在零位（容差 %.3f），不动作" % a.tol)
+            continue
+        if abs(q) > a.big and not a.allow_big:
+            print("           !! 偏差 %.2f rad 很大，跳过（确认安全后加 --allow-big）" % q)
+            continue
+        if a.current > 0:
+            write_param(s, mid, 0x2019, a.current)
+        send(s, (0x04 << 24) | (0xFD << 8) | mid)      # 先失能
+        recv_frame(s, time.monotonic() + 0.15)
+        write_mode(s, mid, 5)                           # 失能状态下切 CSP（单字节）
+        write_param(s, mid, 0x7017, a.speed)
+        send(s, (0x03 << 24) | (0xFD << 8) | mid)      # 再使能
+        recv_frame(s, time.monotonic() + 0.2)
+        time.sleep(0.05)
+        t_end = time.monotonic() + a.timeout
+        ok = False
+        while time.monotonic() < t_end:
+            write_param(s, mid, 0x7016, 0.0, timeout=0.05)
+            time.sleep(a.period)
+            now = read_param(s, mid, IDX_MECHPOS, timeout=0.05)
+            if now is None:
+                continue
+            if abs(to_joint(m, now)) <= a.tol:
+                ok = True
+                print("           到位：%+.4f rad" % to_joint(m, now))
+                break
+        if not ok:
+            print("           !! %.1f 秒没到位（可能被挡住或阻力太大），停在当前角度" % a.timeout)
+    s.close()
+    print("")
+    print("完成。用 calibrate.py show 复核；这些轴现在处于使能保持状态。")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--iface", default="can0")
@@ -226,6 +292,16 @@ def main():
     p.add_argument("--current", type=float, default=6.0, help="电流限幅 A")
     p.add_argument("--ignore-limits", action="store_true")
 
+    p = sub.add_parser("home")
+    p.add_argument("--order", default="", help="逗号分隔，默认 joint5,joint4,joint3,joint2,joint1")
+    p.add_argument("--speed", type=float, default=0.05, help="rad/s")
+    p.add_argument("--current", type=float, default=6.0, help="电流限幅 A")
+    p.add_argument("--tol", type=float, default=0.02, help="到位容差 rad")
+    p.add_argument("--big", type=float, default=1.2, help="偏差超过它就先跳过（安全）")
+    p.add_argument("--timeout", type=float, default=25.0)
+    p.add_argument("--period", type=float, default=0.05)
+    p.add_argument("--allow-big", action="store_true")
+
     p = sub.add_parser("record")
     p.add_argument("--joint", required=True)
     p.add_argument("--which", choices=["lower", "upper"], required=True)
@@ -233,7 +309,7 @@ def main():
     p.add_argument("--dry", action="store_true")
 
     a = ap.parse_args()
-    return {"show": cmd_show, "zero": cmd_zero, "jog": cmd_jog, "record": cmd_record}[a.cmd](a)
+    return {"show": cmd_show, "zero": cmd_zero, "jog": cmd_jog, "record": cmd_record, "home": cmd_home}[a.cmd](a)
 
 
 if __name__ == "__main__":
