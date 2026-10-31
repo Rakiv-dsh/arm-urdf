@@ -1,0 +1,52 @@
+{
+  "_comment": "零位已写进电机（0x7019 在零位读 0），所以 zero_offset_rad 全 0；direction 用于翻转正方向。角度单位：度。",
+  "can_interface": "can0",
+  "master_id": 253,
+  "joints": [
+    {
+      "name": "joint1",
+      "motor_id": 21,
+      "min_angle": -179.91,
+      "max_angle": 179.91,
+      "default_angle": 0.0,
+      "direction": 1.0,
+      "zero_offset_rad": 0.0
+    },
+    {
+      "name": "joint2",
+      "motor_id": 22,
+      "min_angle": -41.25,
+      "max_angle": 125.48,
+      "default_angle": 0.0,
+      "direction": 1.0,
+      "zero_offset_rad": 0.0
+    },
+    {
+      "name": "joint3",
+      "motor_id": 23,
+      "min_angle": -50.99,
+      "max_angle": 134.07,
+      "default_angle": 0.0,
+      "direction": 1.0,
+      "zero_offset_rad": 0.0
+    },
+    {
+      "name": "joint4",
+      "motor_id": 24,
+      "min_angle": -179.91,
+      "max_angle": 179.91,
+      "default_angle": 0.0,
+      "direction": 1.0,
+      "zero_offset_rad": 0.0
+    },
+    {
+      "name": "joint5",
+      "motor_id": 25,
+      "min_angle": -71.91,
+      "max_angle": 100.27,
+      "default_angle": 0.0,
+      "direction": 1.0,
+      "zero_offset_rad": 0.0
+    }
+  ]
+}
