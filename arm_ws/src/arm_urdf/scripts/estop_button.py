@@ -13,6 +13,7 @@
 快捷键：空格 / 回车 / Esc 都能触发停机。
 """
 import argparse
+import os
 import socket
 import struct
 import sys
@@ -29,40 +30,50 @@ T_STOP = 0x04
 
 class Stopper:
     def __init__(self, iface, ids, dry_run=False, repeat=3):
-        self.iface = iface
+        self.iface = iface  # "auto" = 所有 can 接口都发
         self.ids = ids
         self.dry_run = dry_run
         self.repeat = repeat
         self.sock = None
 
-    def _open(self):
-        if self.sock is None:
-            s = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
-            s.bind((self.iface,))
-            s.settimeout(0.05)
-            self.sock = s
-        return self.sock
+    @staticmethod
+    def all_can_ifaces():
+        import glob
+        return sorted(os.path.basename(p) for p in glob.glob("/sys/class/net/can*")) or ["can0"]
+
+    def _socks(self):
+        ifaces = self.all_can_ifaces() if self.iface in (None, "", "auto") else [self.iface]
+        out = []
+        for iface in ifaces:
+            try:
+                s = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
+                s.bind((iface,))
+                s.settimeout(0.05)
+                out.append((iface, s))
+            except OSError:
+                pass
+        return out
 
     def stop(self):
         """返回 (成功台数, 说明)"""
         if self.dry_run:
             return len(self.ids), "dry-run：没有真的发"
-        try:
-            s = self._open()
-        except OSError as e:
-            return 0, "打不开 %s：%s" % (self.iface, e)
+        socks = self._socks()
+        if not socks:
+            return 0, "没有可用的 can 接口"
         ok = 0
         for _ in range(self.repeat):
-            for mid in self.ids:
-                try:
-                    s.send(struct.pack("=IB3x8s",
-                                       (T_STOP << 24) | (MASTER << 8) | mid | CAN_EFF_FLAG,
-                                       8, b"\x00" * 8))
-                    ok += 1
-                except OSError as e:
-                    return ok, "发送失败：%s" % e
+            for iface, s in socks:
+                for mid in self.ids:
+                    try:
+                        s.send(struct.pack("=IB3x8s",
+                                           (T_STOP << 24) | (MASTER << 8) | mid | CAN_EFF_FLAG,
+                                           8, b"\x00" * 8))
+                        ok += 1
+                    except OSError:
+                        pass
             time.sleep(0.02)
-        return ok, "已向 %d 台电机各发 %d 次停机帧" % (len(self.ids), self.repeat)
+        return ok, "sent %d frames on %s" % (ok, ",".join(i for i, _ in socks))
 
 
 class StopWindow(QWidget):
