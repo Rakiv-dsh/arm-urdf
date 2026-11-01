@@ -16,39 +16,39 @@
 
 joints:
   - name: joint1
-    lower: -3.14
-    upper: 3.14
+    lower: -3.141593
+    upper: 3.141593
     effort: 6.0             # 峰值扭矩 N·m，填了 MoveIt 之类的工具才不会报 0
     velocity: 10.0          # vel max rad/s（MotorStudio 里 0x201f = 10）
-    motor: { can_id: 21, dir: 1.0, gear: 1.0, offset: 0.0 }
+    motor: { can_id: 21, dir: 1.0, gear: 1.0, offset: 6.282972 }
 
   - name: joint2
-    lower: -0.720
-    upper: 2.190
+    lower: -0.401136
+    upper: 0.880335
     effort: 6.0
     velocity: 10.0
-    motor: { can_id: 22, dir: 1.0, gear: 1.0, offset: 0.0 }
+    motor: { can_id: 22, dir: 1.0, gear: 1.0, offset: 7.033600 }
 
   - name: joint3
-    lower: -0.890
-    upper: 2.340
+    lower: -0.000980
+    upper: 0.232696
     effort: 6.0
     velocity: 10.0
-    motor: { can_id: 23, dir: 1.0, gear: 1.0, offset: 0.0 }
+    motor: { can_id: 23, dir: 1.0, gear: 1.0, offset: 0.152674 }
 
   - name: joint4
-    lower: -3.14
-    upper: 3.14
+    lower: -0.001023
+    upper: 0.273943
     effort: 6.0
     velocity: 10.0
-    motor: { can_id: 24, dir: 1.0, gear: 1.0, offset: 0.0 }
+    motor: { can_id: 24, dir: 1.0, gear: 1.0, offset: 0.000000 }
 
   - name: joint5
-    lower: -1.255
-    upper: 1.750
+    lower: -0.259541
+    upper: 0.241645
     effort: 6.0
     velocity: 10.0
-    motor: { can_id: 25, dir: 1.0, gear: 1.0, offset: 0.0 }
+    motor: { can_id: 25, dir: 1.0, gear: 1.0, offset: 0.000000 }
 
   - name: joint6            # 没有电机：只在仿真里存在
     lower: -1.57
