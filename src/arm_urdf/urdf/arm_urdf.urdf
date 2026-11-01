@@ -204,7 +204,7 @@
       link="Link3" />
     <axis
       xyz="0 0 -1" />
-    <limit lower="-0.0010" upper="0.2327" effort="6.0" velocity="10.0"/>
+    <limit lower="-3.1416" upper="3.1416" effort="6.0" velocity="10.0"/>
   </joint>
   <link
     name="Link4">

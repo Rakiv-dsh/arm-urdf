@@ -30,8 +30,8 @@ joints:
     motor: { can_id: 22, dir: 1.0, gear: 1.0, offset: 7.033600 }
 
   - name: joint3
-    lower: -0.000980
-    upper: 0.232696
+    lower: -3.141593
+    upper: 3.141593
     effort: 6.0
     velocity: 10.0
     motor: { can_id: 23, dir: 1.0, gear: 1.0, offset: 0.152674 }
