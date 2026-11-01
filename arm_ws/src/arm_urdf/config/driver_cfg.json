@@ -1,0 +1,5 @@
+{
+ "max_speed_rad_s": 20.944,
+ "limit_cur": 6,
+ "note": "200 RPM / 6 A"
+}
