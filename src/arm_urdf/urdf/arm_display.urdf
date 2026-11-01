@@ -85,7 +85,7 @@
     </collision>
   </link>
   <joint
-    name="jiont1"
+    name="joint1"
     type="revolute">
     <origin
       xyz="0 0 -0.016"
@@ -96,11 +96,7 @@
       link="Link1" />
     <axis
       xyz="0 0 1" />
-    <limit
-      lower="-3.1416"
-      upper="3.1416"
-      effort="0"
-      velocity="0" />
+    <limit lower="-3.1416" upper="3.1416" effort="6.0" velocity="10.0"/>
   </joint>
   <link
     name="Link2">
@@ -154,11 +150,7 @@
       link="Link2" />
     <axis
       xyz="0 0 -1" />
-    <limit
-      lower="-3.1416"
-      upper="3.1416"
-      effort="0"
-      velocity="0" />
+    <limit lower="-3.1416" upper="3.1416" effort="6.0" velocity="10.0"/>
   </joint>
   <link
     name="Link3">
@@ -212,11 +204,7 @@
       link="Link3" />
     <axis
       xyz="0 0 -1" />
-    <limit
-      lower="-3.1416"
-      upper="3.1416"
-      effort="0"
-      velocity="0" />
+    <limit lower="-3.1416" upper="3.1416" effort="6.0" velocity="10.0"/>
   </joint>
   <link
     name="Link4">
@@ -270,11 +258,7 @@
       link="Link4" />
     <axis
       xyz="0 0 -1" />
-    <limit
-      lower="-3.1416"
-      upper="3.1416"
-      effort="0"
-      velocity="0" />
+    <limit lower="-3.1416" upper="3.1416" effort="6.0" velocity="10.0"/>
   </joint>
   <link
     name="Link5">
@@ -328,11 +312,7 @@
       link="Link5" />
     <axis
       xyz="0 0 1" />
-    <limit
-      lower="-3.1416"
-      upper="3.1416"
-      effort="0"
-      velocity="0" />
+    <limit lower="-3.1416" upper="3.1416" effort="6.0" velocity="10.0"/>
   </joint>
   <link
     name="Link6">
@@ -386,10 +366,6 @@
       link="Link6" />
     <axis
       xyz="0 0 -1" />
-    <limit
-      lower="-3.1416"
-      upper="3.1416"
-      effort="0"
-      velocity="0" />
+    <limit lower="-3.1416" upper="3.1416" effort="6.0" velocity="10.0"/>
   </joint>
 </robot>
