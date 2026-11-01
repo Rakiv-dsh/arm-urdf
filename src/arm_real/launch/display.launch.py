@@ -24,6 +24,9 @@ def launch_setup(context, *args, **kwargs):
              name="joint_state_publisher_gui", output="screen",
              parameters=[{"robot_description": robot_description, "rate": 30.0}],
              condition=IfCondition(LaunchConfiguration("gui"))),
+        # 自写滑块：界面上直接显示角度（°），用来对姿态更方便
+        Node(package="arm_urdf", executable="joint_slider.py", name="joint_slider",
+             output="screen", condition=IfCondition(LaunchConfiguration("fallback_slider"))),
         Node(package="rviz2", executable="rviz2", name="rviz2", output="screen",
              arguments=["-d", rviz_path],
              condition=IfCondition(LaunchConfiguration("rviz"))),
@@ -35,5 +38,7 @@ def generate_launch_description():
         DeclareLaunchArgument("rviz", default_value="true"),
         DeclareLaunchArgument("gui", default_value="true"),
         DeclareLaunchArgument("urdf_file", default_value="arm_real.urdf"),
+        DeclareLaunchArgument("fallback_slider", default_value="false",
+                              description="用显示角度的自写滑块替代 joint_state_publisher_gui"),
         OpaqueFunction(function=launch_setup),
     ])
