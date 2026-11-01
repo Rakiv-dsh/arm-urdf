@@ -38,7 +38,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QObject, QEvent, QTimer
 from PyQt5.QtWidgets import (
     QApplication,
     QGridLayout,
@@ -52,6 +52,19 @@ from PyQt5.QtWidgets import (
 
 JOINTS = ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
 LIMIT_DEG = 180.0  # +/- 3.14 rad
+
+
+class KeyFilter(QObject):
+    """把方向键等按键从控件手里抢回来，统一交给窗口处理。"""
+
+    def __init__(self, win):
+        super().__init__()
+        self.win = win
+
+    def eventFilter(self, obj, ev):
+        if ev.type() == QEvent.KeyPress and self.win.handle_key(ev):
+            return True
+        return False
 
 
 class JointSliderNode(Node):
@@ -93,6 +106,7 @@ class Window(QWidget):
             grid.addWidget(QLabel(name), row, 0)
 
             sl = QSlider(Qt.Horizontal)
+            sl.setFocusPolicy(Qt.NoFocus)
             sl.setRange(-int(LIMIT_DEG * 100), int(LIMIT_DEG * 100))
             sl.setValue(0)
             sl.setTickInterval(4500)
@@ -119,22 +133,37 @@ class Window(QWidget):
             "border-radius:10px;font-size:22px;font-weight:bold;}"
             "QPushButton:pressed{background:#8e0000;}"
             "QPushButton:hover{background:#e53935;}")
+        self.stop_btn.setFocusPolicy(Qt.NoFocus)
         self.stop_btn.clicked.connect(self.emergency_stop)
         root.addWidget(self.stop_btn)
 
         btns = QHBoxLayout()
         b0 = QPushButton("All zero")
+        b0.setFocusPolicy(Qt.NoFocus)
         b0.clicked.connect(self.reset)
         btns.addWidget(b0)
         b_home = QPushButton("Home pose")
+        b_home.setFocusPolicy(Qt.NoFocus)
         b_home.clicked.connect(self.home)
         btns.addWidget(b_home)
         btns.addStretch(1)
         root.addLayout(btns)
 
-        tip = QLabel("Values are published to /joint_states at 30 Hz.")
-        tip.setStyleSheet("color: #777;")
+        self.selected = 0
+        self.step_deg = 1.0
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocus()
+
+        self.kinfo = QLabel()
+        self.kinfo.setStyleSheet("color:#1a237e;font-weight:bold;")
+        root.addWidget(self.kinfo)
+
+        tip = QLabel("ARROWS = jog selected joint   LEFT/RIGHT = pick joint   "
+                     "[ ] = step   Z = zero joint   A = all zero   S = STOP")
+        tip.setStyleSheet("color:#777;")
+        tip.setWordWrap(True)
         root.addWidget(tip)
+        self.refresh_hint()
 
         self.stamp_timer = QTimer(self)
         self.stamp_timer.timeout.connect(self.node.publish)
@@ -153,6 +182,71 @@ class Window(QWidget):
         except Exception:
             pass
         self.stop_btn.setText("STOPPED " + time.strftime("%H:%M:%S"))
+
+    def refresh_hint(self):
+        if not hasattr(self, "kinfo"):
+            return
+        for i, lab in enumerate(self.value_labels):
+            lab.setStyleSheet("font-weight:bold;color:#c62828;" if i == self.selected else "")
+        self.kinfo.setText("selected: %s     step: %.2f deg" % (JOINTS[self.selected], self.step_deg))
+
+    def select(self, i):
+        self.selected = max(0, min(len(JOINTS) - 1, i))
+        self.refresh_hint()
+
+    def nudge(self, direction, mult=1):
+        sl = self.sliders[self.selected]
+        d = int(round(self.step_deg * 100)) * mult * direction
+        v = max(sl.minimum(), min(sl.maximum(), sl.value() + d))
+        sl.setValue(v)
+        self.refresh_hint()
+
+    def handle_key(self, ev):
+        K = ev.key()
+        if Qt.Key_1 <= K <= Qt.Key_6:
+            self.select(K - Qt.Key_1)
+        elif K in (Qt.Key_Up,):
+            self.nudge(+1)
+        elif K in (Qt.Key_Down,):
+            self.nudge(-1)
+        elif K == Qt.Key_PageUp:
+            self.nudge(+1, 10)
+        elif K == Qt.Key_PageDown:
+            self.nudge(-1, 10)
+        elif K == Qt.Key_Left:
+            self.select(self.selected - 1)
+        elif K == Qt.Key_Right:
+            self.select(self.selected + 1)
+        elif K == Qt.Key_BracketLeft:
+            for st in (5.0, 1.0, 0.5, 0.1):
+                if st < self.step_deg - 1e-9:
+                    self.step_deg = st
+                    break
+            else:
+                self.step_deg = 5.0
+            self.refresh_hint()
+        elif K == Qt.Key_BracketRight:
+            for st in (0.1, 0.5, 1.0, 5.0):
+                if st > self.step_deg + 1e-9:
+                    self.step_deg = st
+                    break
+            else:
+                self.step_deg = 0.1
+            self.refresh_hint()
+        elif K == Qt.Key_Z:
+            self.sliders[self.selected].setValue(0)
+            self.refresh_hint()
+        elif K == Qt.Key_A:
+            self.reset()
+        elif K == Qt.Key_S:
+            self.emergency_stop()
+        else:
+            return False
+        return True
+
+    def keyPressEvent(self, ev):
+        if not self.handle_key(ev):
+            super().keyPressEvent(ev)
 
     def on_slider(self, idx, value, label):
         # slider unit is 0.01 degree -> radian
@@ -178,6 +272,8 @@ def main():
 
     app = QApplication(sys.argv)
     win = Window(node)
+    _filter = KeyFilter(win)
+    app.installEventFilter(_filter)
     win.show()
     # 固定尺寸停到屏幕右下角，别压住 rviz 的菜单栏
     scr = QApplication.primaryScreen().availableGeometry()
