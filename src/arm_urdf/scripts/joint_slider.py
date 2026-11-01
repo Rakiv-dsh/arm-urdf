@@ -118,10 +118,32 @@ class MotorDriver:
         self.targets = {}
         self.max_speed = 0.08     # rad/s
         self.limit_cur = 2.0      # A
+        self._load_driver_cfg()
         self.last_t = time.monotonic()
         self.last_err = ""
         self.iface = None
         self._load()
+
+    def _load_driver_cfg(self):
+        """读取 driver_cfg.json（同目录或包的 config 下），让速度/限流可调不必改代码"""
+        import json
+        here = os.path.dirname(os.path.abspath(__file__))
+        cands = [
+            os.path.join(here, "driver_cfg.json"),
+            os.path.join(os.path.dirname(os.path.dirname(here)), "share", "arm_urdf", "config", "driver_cfg.json"),
+        ]
+        if CFG_LIMITS:
+            cands.append(os.path.join(os.path.dirname(CFG_LIMITS), "driver_cfg.json"))
+        for f in cands:
+            try:
+                c = json.load(open(f, encoding="utf-8"))
+                self.max_speed = float(c.get("max_speed_rad_s", self.max_speed))
+                self.limit_cur = float(c.get("limit_cur", self.limit_cur))
+                self.cfg_path = f
+                return
+            except Exception:
+                continue
+        self.cfg_path = None
 
     def _load(self):
         try:
