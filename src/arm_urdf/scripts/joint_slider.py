@@ -7,13 +7,53 @@ turns the slider values into TF.  Used because ros-jazzy-joint-state-publisher-g
 is not installed in this WSL image.
 """
 
+import os
 import socket
 import struct
 import sys
 import time
 
-STOP_SOCK = None
+STOP_SOCK = {}          # 每条总线一个 socket
 STOP_IDS = [21, 22, 23, 24, 25]
+CAN_EFF = 0x80000000
+
+
+def _all_can_ifaces():
+    """系统里所有 can 接口（USB 重插后编号会变，不能写死 can0）"""
+    try:
+        import glob
+        return sorted(os.path.basename(x) for x in glob.glob("/sys/class/net/can*"))
+    except Exception:
+        return ["can0"]
+
+
+def can_stop(iface="auto", ids=None, repeat=3):
+    """在所有 can 接口上发停机帧（0x04）。返回发出的帧数。"""
+    ids = ids or STOP_IDS
+    ifaces = _all_can_ifaces() if iface in (None, "", "auto") else [iface]
+    sent = 0
+    for name in ifaces:
+        try:
+            s = STOP_SOCK.get(name)
+            if s is None:
+                s = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
+                s.bind((name,))
+                s.settimeout(0.05)
+                STOP_SOCK[name] = s
+            for _ in range(repeat):
+                for mid in ids:
+                    try:
+                        s.send(struct.pack("=IB3x8s", (0x04 << 24) | (0xFD << 8) | mid | CAN_EFF,
+                                           8, b"\x00" * 8))
+                        sent += 1
+                    except OSError:
+                        break
+                time.sleep(0.015)
+        except OSError:
+            STOP_SOCK.pop(name, None)
+    return sent
+
+
 CAN_EFF = 0x80000000
 
 
