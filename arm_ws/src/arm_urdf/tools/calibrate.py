@@ -36,6 +36,12 @@ IDX_MECHPOS, IDX_IQF, IDX_VBUS = 0x7019, 0x701A, 0x701C
 
 # ---------- CAN 基础 ----------
 def _sock(iface, timeout=0.25):
+    if iface in (None, "", "auto"):
+        try:
+            from can_detect import detect
+            iface = detect() or "can0"
+        except Exception:
+            iface = "can0"
     s = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
     s.bind((iface,))
     s.settimeout(timeout)
@@ -278,7 +284,7 @@ def cmd_home(a):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--iface", default="can0")
+    ap.add_argument("--iface", default="auto")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("show")

@@ -1,12 +1,40 @@
 import os
+import subprocess
 
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, Substitution
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.actions import Node
+
+
+def _detect_iface():
+    """找电机在哪条总线上（USB 重插后 canX 编号会变）"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    share = os.path.dirname(here)
+    try:
+        out = subprocess.run(["python3", os.path.join(share, "tools", "can_detect.py"), "--quiet"],
+                             capture_output=True, text=True, timeout=8)
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except Exception:
+        pass
+    return "can0"
+
+
+class AutoIface(Substitution):
+    """can_interface 传 auto（或留空）时，启动那一刻自动检测"""
+
+    def perform(self, context):
+        val = LaunchConfiguration("can_interface").perform(context)
+        if val and val != "auto":
+            return val
+        iface = _detect_iface()
+        print("[launch] 自动检测到电机在 %s" % iface)
+        return iface
 
 
 def generate_launch_description():
@@ -51,7 +79,8 @@ def generate_launch_description():
             DeclareLaunchArgument("gui", default_value="true", description="滑块窗口"),
             DeclareLaunchArgument("servo", default_value="true",
                                   description="启动真机伺服（默认开，但还要 /arm/enable=true 才动）"),
-            DeclareLaunchArgument("can_interface", default_value="can0"),
+            DeclareLaunchArgument("can_interface", default_value="auto",
+                                  description="auto = 自动检测电机在哪条总线"),
             DeclareLaunchArgument("max_speed", default_value="0.3",
                                   description="目标斜坡速度 rad/s，滑块猛拉也不会一步到位"),
             DeclareLaunchArgument("limit_cur", default_value="6.0",
@@ -88,7 +117,7 @@ def generate_launch_description():
                 parameters=[
                     servo_params,
                     {
-                        "can_interface": can_iface,
+                        "can_interface": ParameterValue(AutoIface(), value_type=str),
                         "max_speed": max_speed,
                         "control_rate_hz": 50.0,
                         "speed_limit": 0.5,
