@@ -35,6 +35,10 @@ public:
         "mech_offset", std::vector<double>{0.0, 0.0, 0.0, 0.0, 0.0});
     dirs_ = declare_parameter<std::vector<double>>(
         "joint_direction", std::vector<double>{1.0, 1.0, 1.0, 1.0, 1.0});
+    // 连续关节（无机械限位，可以转整圈）：目标取「离当前位置最近的那一圈」，
+    // 免得多转 360°。实测 joint1/3/4/5 都碰不到硬限位；joint2 未测，先也按连续处理。
+    const auto cont = declare_parameter<std::vector<int64_t>>(
+        "continuous", std::vector<int64_t>{1, 1, 1, 1, 1});
     gears_ = declare_parameter<std::vector<double>>(
         "gear_ratio", std::vector<double>{1.0, 1.0, 1.0, 1.0, 1.0});
     lower_ = declare_parameter<std::vector<double>>(
@@ -57,6 +61,7 @@ public:
       }
     };
     need(offsets_, "mech_offset"); need(dirs_, "joint_direction");
+    for (std::size_t i = 0; i < kJointCount && i < cont.size(); ++i) continuous_[i] = cont[i] != 0;
     need(gears_, "gear_ratio"); need(lower_, "lower_limit"); need(upper_, "upper_limit");
     if (ids.size() != kJointCount) { RCLCPP_ERROR(get_logger(), "motor_ids 需要 5 个值，退出"); throw std::runtime_error("motor_ids"); }
 
@@ -180,8 +185,16 @@ private:
       for (std::size_t i = 0; i < kJointCount; ++i) {
         if (!active_[i]) continue;
         // 关节目标 → 夹到限位 → 换算成电机侧 → 斜坡
-        const double q = clampd(desired_joint_[i], lower_[i], upper_[i]);
-        const double want = offsets_[i] + dirs_[i] * gears_[i] * q;
+        // 连续轴（无机械限位）不受 ±180° 夹取，否则拖过 180° 就卡住不动；
+        // 有限位的轴照旧夹。
+        const double q = continuous_[i]
+                             ? desired_joint_[i]
+                             : clampd(desired_joint_[i], lower_[i], upper_[i]);
+        double want = offsets_[i] + dirs_[i] * gears_[i] * q;
+        if (continuous_[i]) {
+          // 搬到离当前目标最近的一圈：|want-target| 不会超过半圈
+          want += 2.0 * M_PI * std::round((target_[i] - want) / (2.0 * M_PI));
+        }
         const double step = max_speed_ * dt;
         target_[i] += clampd(want - target_[i], -step, step);
         // 模式与限速已在使能时写过，这里每周期只写目标位置（0x7016），CAN 负载减半
@@ -229,6 +242,7 @@ private:
   double control_rate_hz_{50.0}, max_speed_{0.3}, speed_limit_{0.5}, watchdog_ms_{1000.0}, limit_cur_{0.0};
   bool have_slider_{false}, enabled_{false};
   std::array<bool, kJointCount> active_{};
+  std::array<bool, kJointCount> continuous_{};
   int fail_streak_{0};
   int log_tick_{0};
   std::chrono::steady_clock::time_point last_msg_{};
