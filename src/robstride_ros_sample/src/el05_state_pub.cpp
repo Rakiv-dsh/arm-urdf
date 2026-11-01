@@ -36,6 +36,10 @@ public:
                                                    std::vector<double>{1, 1, 1, 1, 1});
     gears_ = declare_parameter<std::vector<double>>("gear_ratio",
                                                     std::vector<double>{1, 1, 1, 1, 1});
+    // 模型显示用的附加偏置（rad）：只影响 RViz 里模型的姿态，不动电机、不动 URDF。
+    // 用来把"模型零位"挪到和真机一致的姿态，逐个关节试。
+    model_offset_ = declare_parameter<std::vector<double>>(
+        "model_offset", std::vector<double>{0.0, 0.0, 0.0, 0.0, 0.0});
     iface_ = declare_parameter<std::string>("can_interface", "can0");
     const double rate = declare_parameter<double>("rate_hz", 20.0);
     if (ids.size() != kN) throw std::runtime_error("motor_ids 需要 5 个值");
@@ -65,6 +69,7 @@ private:
         msg.position[i] = std::isfinite(mech)
                               ? (mech - offsets_[i]) / (dirs_[i] * gears_[i])
                               : last_[i];
+        if (i < model_offset_.size()) msg.position[i] += model_offset_[i];
       } catch (const std::exception &) {
         msg.position[i] = last_[i];   // 读失败就沿用上一次
       }
@@ -75,7 +80,7 @@ private:
 
   std::vector<std::string> joint_names_;
   std::array<uint8_t, kN> motor_ids_{};
-  std::vector<double> offsets_, dirs_, gears_;
+  std::vector<double> offsets_, dirs_, gears_, model_offset_;
   std::array<std::unique_ptr<RobStrideMotor>, kN> motors_;
   std::array<double, kN> last_{};
   std::string iface_{"can0"};

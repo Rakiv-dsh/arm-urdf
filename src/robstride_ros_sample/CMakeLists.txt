@@ -74,6 +74,10 @@ add_executable(el05_state_pub
   src/el05_state_pub.cpp
 )
 
+add_executable(el05_find_limits
+  src/el05_find_limits.cpp
+)
+
 add_executable(el05_home
   src/el05_home.cpp
 )
@@ -113,6 +117,7 @@ target_link_libraries(el05_all_sine ${PROJECT_NAME}_lib)
 target_link_libraries(el05_joint2_current_monitor ${PROJECT_NAME}_lib)
 target_link_libraries(el05_slider_servo ${PROJECT_NAME}_lib)
 target_link_libraries(el05_home ${PROJECT_NAME}_lib)
+target_link_libraries(el05_find_limits ${PROJECT_NAME}_lib)
 target_link_libraries(el05_state_pub ${PROJECT_NAME}_lib)
 # target_link_libraries(enable_motor
 #   ${PROJECT_NAME}_lib
@@ -131,7 +136,7 @@ install(
 
 # Install targets
 install(
-  TARGETS ${PROJECT_NAME}_lib rs_motor_ros2 five_dof_arm_controller el05_joint1_sine el05_all_sine el05_joint2_current_monitor el05_slider_servo el05_home el05_state_pub
+  TARGETS ${PROJECT_NAME}_lib rs_motor_ros2 five_dof_arm_controller el05_joint1_sine el05_all_sine el05_joint2_current_monitor el05_slider_servo el05_home el05_find_limits el05_state_pub
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
