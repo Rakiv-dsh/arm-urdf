@@ -90,8 +90,224 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+try:
+    from ament_index_python.packages import get_package_share_directory
+    CFG_LIMITS = os.path.join(get_package_share_directory("arm_urdf"), "config", "joint_limits.yaml")
+except Exception:
+    CFG_LIMITS = ""
+
 JOINTS = ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
 LIMIT_DEG = 180.0  # +/- 3.14 rad
+
+
+# ---------------- 直接驱动电机（面板自带，不依赖 C++ 伺服节点） ----------------
+import glob
+
+
+class MotorDriver:
+    """读 joint_limits.yaml 的 can_id/dir/gear/offset/限位，用 CSP 直接驱动电机。
+
+    ENABLE = 使能五台并停在当前位置；拖动滑块 = 斜坡跟随；STOP = 全总线停机帧。
+    """
+
+    def __init__(self, yaml_path):
+        self.yaml_path = yaml_path
+        self.motors = []          # [{name, can_id, dir, gear, offset, lo, hi}]
+        self.socks = {}
+        self.on = False
+        self.targets = {}
+        self.max_speed = 0.08     # rad/s
+        self.limit_cur = 2.0      # A
+        self.last_t = time.monotonic()
+        self.last_err = ""
+        self.iface = None
+        self._load()
+
+    def _load(self):
+        try:
+            import yaml
+            cfg = yaml.safe_load(open(self.yaml_path, encoding="utf-8"))
+        except Exception as e:
+            self.last_err = "读配置失败: %s" % e
+            return
+        for j in cfg.get("joints", []):
+            m = j.get("motor")
+            if not m:
+                continue
+            self.motors.append(dict(
+                name=j["name"], can_id=int(m["can_id"]),
+                dir=float(m.get("dir", 1.0)), gear=float(m.get("gear", 1.0)),
+                offset=float(m.get("offset", 0.0)),
+                lo=float(j["lower"]), hi=float(j["upper"])))
+
+    # ---- CAN 基础 ----
+    @staticmethod
+    def ifaces():
+        return sorted(os.path.basename(p) for p in glob.glob("/sys/class/net/can*"))
+
+    def _sock(self, name):
+        s = self.socks.get(name)
+        if s is None:
+            s = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
+            s.bind((name,))
+            s.settimeout(0.02)
+            self.socks[name] = s
+        return s
+
+    def _send(self, name, cid, data):
+        self._sock(name).send(struct.pack("=IB3x8s", cid | CAN_EFF, 8, bytes(data)))
+
+    def _param_f(self, name, mid, idx, val):
+        # PAD2: 索引放 data[0..1]，value 必须放 data[4..7]，中间两个字节留 0
+        self._send(name, (0x12 << 24) | (0xFD << 8) | mid,
+                   struct.pack("<H", idx) + b"\x00\x00" + struct.pack("<f", float(val)))
+
+    def _param_b(self, name, mid, idx, val):
+        # PAD2: uint8 参数同样是 data[4]
+        self._send(name, (0x12 << 24) | (0xFD << 8) | mid,
+                   struct.pack("<H", idx) + b"\x00\x00" + bytes([int(val), 0, 0, 0]))
+
+    def read_mech(self, name, mid, idx=0x7019):
+        try:
+            s = self._sock(name)
+            s.send(struct.pack("=IB3x8s", (0x11 << 24) | (0xFD << 8) | mid | CAN_EFF, 8,
+                               struct.pack("<H", idx) + b"\x00" * 6))
+            t_end = time.monotonic() + 0.2
+            while time.monotonic() < t_end:
+                try:
+                    fr = s.recv(16)
+                except socket.timeout:
+                    continue
+                if len(fr) < 16:
+                    continue
+                cid, dlc = struct.unpack("=IB", fr[:5])
+                c = cid & 0x1FFFFFFF
+                if ((c >> 24) & 0x1F) == 0x11 and ((c >> 8) & 0xFF) == mid:
+                    d = fr[8:8 + min(dlc, 8)]
+                    if (d[0] | (d[1] << 8)) == idx:
+                        return struct.unpack("<f", d[4:8])[0]
+        except OSError:
+            pass
+        return None
+
+    def read_f32(self, name, mid, idx, timeout=0.2):
+        try:
+            s_ = self._sock(name)
+            s_.send(struct.pack("=IB3x8s", (0x11 << 24) | (0xFD << 8) | mid | CAN_EFF, 8,
+                                struct.pack("<H", idx) + b"\x00" * 6))
+            t_end = time.monotonic() + timeout
+            while time.monotonic() < t_end:
+                try:
+                    fr = s_.recv(16)
+                except socket.timeout:
+                    continue
+                if len(fr) < 16:
+                    continue
+                cid, dlc = struct.unpack("=IB", fr[:5])
+                c = cid & 0x1FFFFFFF
+                if ((c >> 24) & 0x1F) == 0x11 and ((c >> 8) & 0xFF) == mid:
+                    d = fr[8:8 + min(dlc, 8)]
+                    if (d[0] | (d[1] << 8)) == idx:
+                        return struct.unpack("<f", d[4:8])[0]
+        except OSError:
+            pass
+        return None
+
+    def _stop_all(self):
+        sent = 0
+        for name in self.ifaces():
+            try:
+                for _ in range(2):
+                    for m in self.motors:
+                        self._send(name, (0x04 << 24) | (0xFD << 8) | m["can_id"], b"\x00" * 8)
+                        sent += 1
+                    time.sleep(0.01)
+            except OSError:
+                self.socks.pop(name, None)
+        return sent
+
+    # ---- 启动 / 停止 ----
+    def start(self):
+        if self.on:
+            return True, "already on"
+        if not self.motors:
+            return False, "没有可驱动关节"
+        ok_iface = None
+        for name in self.ifaces():
+            for m in self.motors:
+                if self.read_mech(name, m["can_id"]) is not None:
+                    ok_iface = name
+                    break
+            if ok_iface:
+                break
+        if not ok_iface:
+            self.last_err = "没有 can 接口应答（电机没上电？）"
+            return False, self.last_err
+        for m in self.motors:
+            mid = m["can_id"]
+            try:
+                cur = self.read_mech(ok_iface, mid)
+                if cur is None:
+                    continue
+                self._param_f(ok_iface, mid, 0x2019, self.limit_cur)   # 限流
+                time.sleep(0.02)
+                self._send(ok_iface, (0x04 << 24) | (0xFD << 8) | mid,
+                           bytes([1, 0, 0, 0, 0, 0, 0, 0]))            # 停机 + 清故障
+                time.sleep(0.03)
+                self._param_b(ok_iface, mid, 0x7005, 5)                # 切 CSP
+                time.sleep(0.02)
+                self.read_f32(ok_iface, mid, 0x7005, timeout=0.05)     # 读回（和库一致）
+                self._send(ok_iface, (0x03 << 24) | (0xFD << 8) | mid, b"\x00" * 8)   # 使能
+                time.sleep(0.03)
+                self._param_f(ok_iface, mid, 0x7017, self.max_speed)   # 限速
+                self.targets[m["name"]] = cur
+            except OSError as e:
+                self.last_err = "CAN 发送失败: %s" % e
+                return False, self.last_err
+        self.iface = ok_iface
+        self.on = True
+        self.last_t = time.monotonic()
+        time.sleep(0.25)
+        cur = self.read_f32(ok_iface, self.motors[0]["can_id"], 0x701A, timeout=0.15)
+        return True, "enabled on %s, iq=%s" % (ok_iface, "%.3f" % cur if cur is not None else "?")
+
+    def stop(self):
+        n = self._stop_all()
+        self.on = False
+        return n
+
+    # ---- 每个周期跟随滑块 ----
+    def tick(self, q_map):
+        if not self.on:
+            return
+        now = time.monotonic()
+        dt = max(0.0, min(0.1, now - self.last_t))
+        self.last_t = now
+        step = self.max_speed * dt
+        iface = self.iface
+        if iface is None:
+            for name in self.ifaces():
+                if self.read_mech(name, self.motors[0]["can_id"]) is not None:
+                    self.iface = name
+                    break
+            iface = self.iface
+        if iface is None:
+            return
+        for m in self.motors:
+            q = q_map.get(m["name"])
+            if q is None:
+                continue
+            q = max(m["lo"], min(m["hi"], q))
+            want = m["offset"] + m["dir"] * m["gear"] * q
+            cur = self.targets.get(m["name"], want)
+            d = want - cur
+            d = max(-step, min(step, d))
+            self.targets[m["name"]] = cur + d
+            try:
+                self._param_f(iface, m["can_id"], 0x7016, self.targets[m["name"]])
+            except OSError:
+                return
+
 
 
 class KeyFilter(QObject):
@@ -116,10 +332,13 @@ class JointSliderNode(Node):
         self.positions = [0.0] * len(JOINTS)
         self.get_logger().info("publishing /joint_states for: " + ", ".join(JOINTS))
 
-    def set_enable(self, on):
+    def set_enable(self, on, times=3):
+        """ENABLE_BTN_V2：连发几次，避免单次丢了没反应"""
         m = Bool()
         m.data = bool(on)
-        self.enable_pub.publish(m)
+        for _ in range(times):
+            self.enable_pub.publish(m)
+            time.sleep(0.05)
 
     def publish(self):
         msg = JointState()
@@ -133,6 +352,7 @@ class Window(QWidget):
     def __init__(self, node: JointSliderNode):
         super().__init__()
         self.node = node
+        self.driver = MotorDriver(CFG_LIMITS)
         self.setWindowTitle("Arm joint sliders  (/joint_states)")
         self.setMinimumWidth(520)
 
@@ -165,6 +385,17 @@ class Window(QWidget):
             self.value_labels.append(lab)
 
         root.addLayout(grid)
+
+        self.enable_btn = QPushButton("ENABLE  (motors ON)")
+        self.enable_btn.setMinimumHeight(52)
+        self.enable_btn.setFocusPolicy(Qt.NoFocus)
+        self.enable_btn.setStyleSheet(
+            "QPushButton{background:#2e7d32;color:white;border:3px solid #1b5e20;"
+            "border-radius:10px;font-size:18px;font-weight:bold;}"
+            "QPushButton:pressed{background:#1b5e20;}"
+            "QPushButton:hover{background:#43a047;}")
+        self.enable_btn.clicked.connect(self.do_enable)
+        root.addWidget(self.enable_btn)
 
         self.stop_btn = QPushButton("STOP  (E-STOP)")
         self.stop_btn.setMinimumHeight(64)
@@ -205,23 +436,44 @@ class Window(QWidget):
         root.addWidget(tip)
         self.refresh_hint()
 
+        self.drive_timer = QTimer(self)
+        self.drive_timer.timeout.connect(self.on_drive)
+        self.drive_timer.start(33)
+
         self.stamp_timer = QTimer(self)
         self.stamp_timer.timeout.connect(self.node.publish)
         self.stamp_timer.start(33)
 
     # ---- callbacks -------------------------------------------------
+    def on_drive(self):
+        if self.driver.on:
+            q_map = {name: self.node.positions[i] for i, name in enumerate(JOINTS)}
+            self.driver.tick(q_map)
+
+    def do_enable(self):
+        """使能：面板自己直接通过 CAN 使能五台电机（不依赖 C++ 伺服节点）"""
+        ok, msg = self.driver.start()
+        if ok:
+            self.enable_btn.setText("ENABLED %s  %s" % (time.strftime("%H:%M:%S"), msg))
+        else:
+            self.enable_btn.setText("ENABLE failed: " + str(msg)[:40])
+
     def emergency_stop(self):
-        """停机：CAN 直接停 + 通知伺服节点失能"""
+        """停机：CAN 直接停（全总线）+ 通知伺服节点失能（重复 3 次）"""
+        frames = -1
         try:
-            n = can_stop()
-            msg = "已发 %d 帧停机\n%s" % (n, time.strftime("%H:%M:%S"))
-        except OSError as e:
-            msg = "停机失败：%s" % e
+            frames = self.driver.stop()
+        except Exception:
+            frames = -1
         try:
-            self.node.set_enable(False)
+            self.node.set_enable(False, times=3)
         except Exception:
             pass
-        self.stop_btn.setText("STOPPED " + time.strftime("%H:%M:%S"))
+        t = time.strftime("%H:%M:%S")
+        if frames >= 0:
+            self.stop_btn.setText("STOPPED %s  (%d frames + disable)" % (t, frames))
+        else:
+            self.stop_btn.setText("STOPPED %s  (disable sent, CAN failed)" % t)
 
     def refresh_hint(self):
         if not hasattr(self, "kinfo"):
