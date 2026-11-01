@@ -6,22 +6,45 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, Substitution
+from launch.substitutions import LaunchConfiguration
+from launch import Substitution
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.actions import Node
 
 
 def _detect_iface():
-    """找电机在哪条总线上（USB 重插后 canX 编号会变）"""
-    here = os.path.dirname(os.path.abspath(__file__))
-    share = os.path.dirname(here)
-    try:
-        out = subprocess.run(["python3", os.path.join(share, "tools", "can_detect.py"), "--quiet"],
-                             capture_output=True, text=True, timeout=8)
-        if out.returncode == 0 and out.stdout.strip():
-            return out.stdout.strip()
-    except Exception:
-        pass
+    """直接在 launch 里探测：哪条 can 接口能应答 21 号电机"""
+    import glob
+    import socket
+    import struct
+    import time
+
+    for name in sorted(os.path.basename(x) for x in glob.glob("/sys/class/net/can*")):
+        try:
+            s = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
+            s.bind((name,))
+            s.settimeout(0.02)
+        except OSError:
+            continue
+        try:
+            s.send(struct.pack("=IB3x8s", (0x11 << 24) | (0xFD << 8) | 21 | 0x80000000,
+                               8, struct.pack("<H", 0x7019) + b"\x00" * 6))
+            t_end = time.monotonic() + 0.15
+            while time.monotonic() < t_end:
+                try:
+                    fr = s.recv(16)
+                except socket.timeout:
+                    continue
+                if len(fr) < 16:
+                    continue
+                cid, _ = struct.unpack("=IB", fr[:5])
+                c = cid & 0x1FFFFFFF
+                if ((c >> 24) & 0x1F) == 0x11 and ((c >> 8) & 0xFF) == 21:
+                    return name
+        except OSError:
+            pass
+        finally:
+            s.close()
     return "can0"
 
 
