@@ -1,0 +1,102 @@
+{
+  "schema": "dexhand.hand.v1",
+  "hand_id": "arm_el05",
+  "display_name": "机械臂 EL05（5 轴 · SocketCAN 桥接）",
+  "preset": false,
+  "removable": true,
+  "driver": {
+    "kind": "python",
+    "path": "driver_adapter/driver.py",
+    "class": "HandDriver"
+  },
+  "motor": {
+    "kind": "python_adapter",
+    "protocols": [
+      "bridge"
+    ],
+    "default_protocol": "bridge",
+    "default_baudrates": {
+      "bridge": 5599
+    },
+    "force_control_supported": false,
+    "adapter_config": {
+      "bridge_endpoint": "127.0.0.1:5599",
+      "can_interface": "auto",
+      "requires_endpoint": false,
+      "master_id": 253,
+      "limit_current_a": 6,
+      "max_speed_rad_s": 0.5,
+      "telemetry_period_ms": 100
+    },
+    "actuator_order": [
+      "act_joint1",
+      "act_joint2",
+      "act_joint3",
+      "act_joint4",
+      "act_joint5"
+    ]
+  },
+  "resources": {
+    "model": "model/arm_el05.xml",
+    "calibration": "calibration.json",
+    "gestures": "gestures"
+  },
+  "fingers": [
+    {
+      "name": "arm",
+      "display_name": "机械臂本体",
+      "joints": [
+        {
+          "name": "joint1",
+          "display_name": "1 轴（底座旋转）",
+          "motor_id": 21,
+          "min_angle": -180,
+          "max_angle": 180,
+          "default_angle": 0,
+          "torque_limit": 6,
+          "actuator_name": "act_joint1"
+        },
+        {
+          "name": "joint2",
+          "display_name": "2 轴（肩）",
+          "motor_id": 22,
+          "min_angle": -180,
+          "max_angle": 180,
+          "default_angle": 0,
+          "torque_limit": 6,
+          "actuator_name": "act_joint2"
+        },
+        {
+          "name": "joint3",
+          "display_name": "3 轴（肘）",
+          "motor_id": 23,
+          "min_angle": -180,
+          "max_angle": 180,
+          "default_angle": 0,
+          "torque_limit": 6,
+          "actuator_name": "act_joint3"
+        },
+        {
+          "name": "joint4",
+          "display_name": "4 轴（腕回转）",
+          "motor_id": 24,
+          "min_angle": -180,
+          "max_angle": 180,
+          "default_angle": 0,
+          "torque_limit": 6,
+          "actuator_name": "act_joint4"
+        },
+        {
+          "name": "joint5",
+          "display_name": "5 轴（腕俯仰）",
+          "motor_id": 25,
+          "min_angle": -180,
+          "max_angle": 180,
+          "default_angle": 0,
+          "torque_limit": 6,
+          "actuator_name": "act_joint5"
+        }
+      ]
+    }
+  ]
+}
