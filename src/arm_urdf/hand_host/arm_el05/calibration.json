@@ -1,0 +1,40 @@
+{
+  "joints": [
+    {
+      "name": "joint1",
+      "motor_id": 21,
+      "min_angle": -180,
+      "max_angle": 180,
+      "default_angle": 0
+    },
+    {
+      "name": "joint2",
+      "motor_id": 22,
+      "min_angle": -180,
+      "max_angle": 180,
+      "default_angle": 0
+    },
+    {
+      "name": "joint3",
+      "motor_id": 23,
+      "min_angle": -180,
+      "max_angle": 180,
+      "default_angle": 0
+    },
+    {
+      "name": "joint4",
+      "motor_id": 24,
+      "min_angle": -180,
+      "max_angle": 180,
+      "default_angle": 0
+    },
+    {
+      "name": "joint5",
+      "motor_id": 25,
+      "min_angle": -180,
+      "max_angle": 180,
+      "default_angle": 0
+    }
+  ],
+  "note": "关节角（度），零位由 WSL 侧 joint_limits.yaml 的 offset 定义"
+}
