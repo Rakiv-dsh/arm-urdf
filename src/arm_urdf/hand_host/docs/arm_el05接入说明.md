@@ -62,3 +62,19 @@
 
 - 真机（非 dry-run）的使能/点动：还没在真机上走过一遍
 - 「预设手势」「数据记录」页：还没接我们的关节名
+
+## 界面裁剪（只保留机械臂相关）
+
+侧边栏现在只剩 6 页：
+
+    连接管理 / 关节控制 / 电机标定 / 数据记录 / 动作序列 / 机型管理
+
+- 移除「触觉可视化」「仿真遥操作」（手部专用）
+- 「预设手势」改名为「动作序列」，「手型管理」改名为「机型管理」
+- 窗口标题改成「机械臂上位机控制系统」，侧栏标题「机械臂控制」
+- 连接页在没有触觉的机型下自动隐藏「触觉通信」区块
+- bridge 协议下不显示「无可用端口」，改为默认桥地址 127.0.0.1:5599（默认）
+
+改动的文件（项目目录 docs/patches/ 有完整副本）：
+main_window.py、widgets/connection_page.py、widgets/gesture_page.py、
+widgets/hand_manager_page.py、widgets/calibration_page.py、widgets/tactile_hand_3d_widget.py
