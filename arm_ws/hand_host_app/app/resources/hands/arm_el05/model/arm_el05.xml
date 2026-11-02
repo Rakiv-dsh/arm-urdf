@@ -1,0 +1,65 @@
+<mujoco model="arm_el05">
+  <compiler angle="radian" meshdir="meshes"/>
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+  <visual>
+    <headlight ambient="0.22 0.24 0.28" diffuse="0.55 0.58 0.62" specular="0.1 0.1 0.1"/>
+    <global offwidth="800" offheight="600"/>
+  </visual>
+  <default>
+    <geom rgba="0.42 0.46 0.55 1"/>
+  </default>
+  <asset>
+    <mesh name="m_base_link" file="base_link.STL"/>
+    <mesh name="m_Link1" file="Link1.STL"/>
+    <mesh name="m_Link2" file="Link2.STL"/>
+    <mesh name="m_Link3" file="Link3.STL"/>
+    <mesh name="m_Link4" file="Link4.STL"/>
+    <mesh name="m_Link5" file="Link5.STL"/>
+    <mesh name="m_Link6" file="Link6.STL"/>
+  </asset>
+  <worldbody>
+    <light pos="0.6 -0.6 1.2" dir="-0.4 0.4 -1" diffuse="0.35 0.35 0.36" specular="0.1 0.1 0.1"/>
+    <light pos="-0.6 0.5 0.8" dir="0.4 -0.3 -1" diffuse="0.18 0.19 0.22"/>
+    <body name="base_link">
+      <geom group="1" type="mesh" mesh="m_base_link" pos="0.000000 0.000000 0.000000" quat="1.000000 0.000000 0.000000 0.000000" contype="0" conaffinity="0"/>
+      <inertial pos="0.000508 -0.000787 0.015532" mass="0.102936" fullinertia="5.815579e-05 1.934627e-04 2.311821e-04 -1.125555e-06 7.303834e-07 -1.132454e-06"/>
+      <body name="Link1" pos="0.000000 0.000000 0.003000" quat="0.467316 0.000000 0.000000 0.884090">
+        <joint name="joint1" type="hinge" axis="0.000000 0.000000 1.000000" range="-3.1400 3.1400" damping="0.05"/>
+        <geom group="1" type="mesh" mesh="m_Link1" pos="0.000000 0.000000 0.000000" quat="1.000000 0.000000 0.000000 0.000000" contype="0" conaffinity="0"/>
+        <inertial pos="-0.008932 -0.012281 0.060418" mass="0.012877" fullinertia="6.282068e-06 5.707194e-06 4.274736e-06 -9.242639e-07 1.392339e-06 1.891227e-06"/>
+        <body name="Link2" pos="-0.046714 -0.063709 0.086000" quat="0.971652 0.139793 0.190655 0.000000">
+          <joint name="joint2" type="hinge" axis="0.591310 0.806450 0.000000" range="-3.1400 3.1400" damping="0.05"/>
+          <geom group="1" type="mesh" mesh="m_Link2" pos="0.000000 0.000000 0.000000" quat="1.000000 0.000000 0.000000 0.000000" contype="0" conaffinity="0"/>
+          <inertial pos="0.043885 0.050407 -0.010857" mass="0.015626" fullinertia="3.999968e-06 4.548837e-06 5.858685e-06 -1.605480e-06 7.793295e-07 1.223329e-06"/>
+          <body name="Link3" pos="0.051774 0.059007 -0.013338" quat="0.964626 0.097245 -0.071304 -0.234425">
+            <joint name="joint3" type="hinge" axis="-0.368880 0.270480 0.889250" range="-3.1400 3.1400" damping="0.05"/>
+            <geom group="1" type="mesh" mesh="m_Link3" pos="0.000000 0.000000 0.000000" quat="1.000000 0.000000 0.000000 0.000000" contype="0" conaffinity="0"/>
+            <inertial pos="-0.027445 0.001767 0.062770" mass="0.015117" fullinertia="5.623390e-06 6.525235e-06 3.196887e-06 -5.510644e-07 1.476124e-06 1.292294e-06"/>
+            <body name="Link4" pos="-0.032684 0.000034 0.074370" quat="1.000000 0.000000 0.000000 0.000000">
+              <joint name="joint4" type="hinge" axis="0.174410 0.959870 -0.219610" range="-3.1400 3.1400" damping="0.05"/>
+              <geom group="1" type="mesh" mesh="m_Link4" pos="0.000000 0.000000 0.000000" quat="1.000000 0.000000 0.000000 0.000000" contype="0" conaffinity="0"/>
+              <inertial pos="-0.002489 0.026189 0.010497" mass="0.039356" fullinertia="1.537470e-05 1.705593e-05 1.693323e-05 -1.270385e-06 -4.688979e-07 3.219980e-06"/>
+              <body name="Link5" pos="-0.007578 0.027312 0.022286" quat="0.906308 -0.155896 0.114310 0.375814">
+                <joint name="joint5" type="hinge" axis="-0.368880 0.270480 0.889250" range="-3.1400 3.1400" damping="0.05"/>
+                <geom group="1" type="mesh" mesh="m_Link5" pos="0.000000 0.000000 0.000000" quat="1.000000 0.000000 0.000000 0.000000" contype="0" conaffinity="0"/>
+                <inertial pos="-0.037494 0.007895 0.056492" mass="0.014842" fullinertia="4.095431e-06 6.466705e-06 4.605420e-06 -1.143971e-07 2.240355e-06 5.407690e-07"/>
+                <body name="Link6" pos="-0.046135 0.007914 0.066394" quat="1.000000 0.000000 0.000000 0.000000">
+                  <joint name="joint6" type="hinge" axis="0.785820 0.601710 0.142960" range="-3.1400 3.1400" damping="0.05"/>
+                  <geom group="1" type="mesh" mesh="m_Link6" pos="0.000000 0.000000 0.000000" quat="1.000000 0.000000 0.000000 0.000000" contype="0" conaffinity="0"/>
+                  <inertial pos="0.055457 -0.022123 -0.112707" mass="1.652754" fullinertia="1.073573e-02 1.046584e-02 2.786557e-03 4.544418e-04 2.416163e-03 -2.329496e-03"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="act_joint1" joint="joint1" ctrlrange="-6 6"/>
+    <motor name="act_joint2" joint="joint2" ctrlrange="-6 6"/>
+    <motor name="act_joint3" joint="joint3" ctrlrange="-6 6"/>
+    <motor name="act_joint4" joint="joint4" ctrlrange="-6 6"/>
+    <motor name="act_joint5" joint="joint5" ctrlrange="-6 6"/>
+  </actuator>
+</mujoco>
