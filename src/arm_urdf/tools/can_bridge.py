@@ -205,7 +205,11 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--limit-cur", type=float, default=6.0)
     ap.add_argument("--max-speed", type=float, default=0.5)
+    ap.add_argument("--watchdog", type=float, default=2.0,
+                    help="使能后多少秒没收到角度指令就自动停机（0=关闭）")
     a = ap.parse_args()
+    watchdog = [a.watchdog]
+    last_cmd = [time.monotonic()]
 
     arm = Arm(dry=a.dry_run, limit_cur=a.limit_cur, max_speed=a.max_speed)
     print("[bridge] joints:", [j["name"] for j in arm.joints], " dry-run:", a.dry_run, flush=True)
@@ -256,11 +260,12 @@ def main():
                     elif cmd == "enable":
                         ok, info = arm.enable(bool(msg.get("on", True)))
                         reply = dict(ok=ok, info=info, enabled=arm.on)
-                    elif cmd == "stop":
+                    elif cmd in ("stop", "estop"):
                         n = arm.stop_all()
-                        reply = dict(ok=True, frames=n, enabled=False)
+                        reply = dict(ok=True, frames=n, enabled=False, estopped=True)
                     elif cmd == "angles":
                         arm.set_angles(msg.get("q") or [])
+                        last_cmd[0] = time.monotonic()
                         reply = dict(ok=True, q=arm._q, enabled=arm.on)
                     elif cmd == "status":
                         reply = dict(ok=True, enabled=arm.on, iface=arm.iface,
@@ -273,6 +278,10 @@ def main():
                         pass
 
         now = time.monotonic()
+        # 看门狗：使能后若超过 watchdog 秒没有角度指令，自动停机（防界面崩溃/线断）
+        if arm.on and watchdog[0] > 0 and now - last_cmd[0] > watchdog[0]:
+            print("[bridge] watchdog 触发：%.1fs 没收到指令，停机" % watchdog[0], flush=True)
+            arm.stop_all()
         if now - last_ctrl >= 0.033:
             last_ctrl = now
             arm.tick()
